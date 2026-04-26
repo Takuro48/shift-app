@@ -137,34 +137,34 @@ export function EditMatrix(props: Props) {
     });
   };
 
-  // 充足率と警告の計算
-  const sufficiency = useMemo(() => {
-    const rows = new Map<string, Map<string, number>>(); // frame_id -> (date -> assigned)
+  // 希望集計(各 frame × 日付 で希望者数をカウント)
+  const requestCount = useMemo(() => {
+    const rows = new Map<string, Map<string, number>>(); // frame_id -> (date -> requested)
     for (const f of props.frames) rows.set(f.id, new Map());
-    for (const a of props.assignments) {
-      if (!a.shift_frame_id) continue;
-      const m = rows.get(a.shift_frame_id);
+    for (const r of props.requests) {
+      const m = rows.get(r.shift_frame_id);
       if (!m) continue;
-      m.set(a.date, (m.get(a.date) ?? 0) + 1);
+      m.set(r.date, (m.get(r.date) ?? 0) + 1);
     }
     return rows;
-  }, [props.frames, props.assignments]);
+  }, [props.frames, props.requests]);
 
   const warnings = useMemo(() => {
     const list: string[] = [];
     for (const day of props.days) {
       for (const f of props.frames) {
         const required = requiredMap.get(`${f.id}|${day.category}`) ?? 0;
-        const assigned = sufficiency.get(f.id)?.get(day.iso) ?? 0;
-        if (assigned < required) {
+        if (required === 0) continue;
+        const requested = requestCount.get(f.id)?.get(day.iso) ?? 0;
+        if (requested < required) {
           list.push(
-            `${props.month}/${day.day}(${WEEKDAY_LABELS[day.weekday]}) ${f.name} 不足: ${assigned}/${required}`,
+            `${props.month}/${day.day}(${WEEKDAY_LABELS[day.weekday]}) ${f.name} 希望不足: ${requested}/${required}`,
           );
         }
       }
     }
     return list;
-  }, [props.days, props.frames, props.month, requiredMap, sufficiency]);
+  }, [props.days, props.frames, props.month, requiredMap, requestCount]);
 
   const totalAssignments = props.assignments.length;
   const confirmedAssignments = props.assignments.filter(
@@ -292,29 +292,34 @@ export function EditMatrix(props: Props) {
                   })}
                 </tr>
               ))}
-              {/* 充足率フッター */}
+              {/* 希望フッター(枠ごと、日付別) */}
               {props.frames.map((f) => (
                 <tr
                   key={`req-${f.id}`}
                   className="border-t border-gray-200 bg-gray-50"
                 >
                   <td className="px-2 py-1 text-[10px] text-gray-600 border-r border-gray-200 sticky left-0 bg-gray-50 z-10 whitespace-nowrap">
-                    {f.name} 充足
+                    {f.name} 希望
                   </td>
                   {props.days.map((d) => {
                     const required =
                       requiredMap.get(`${f.id}|${d.category}`) ?? 0;
-                    const assigned =
-                      sufficiency.get(f.id)?.get(d.iso) ?? 0;
-                    const insufficient = assigned < required;
+                    const requested =
+                      requestCount.get(f.id)?.get(d.iso) ?? 0;
+                    const cellClass =
+                      required === 0
+                        ? "text-gray-400"
+                        : requested < required
+                          ? "text-red-700 font-bold"
+                          : requested > required
+                            ? "text-blue-700 font-bold"
+                            : "text-gray-600";
                     return (
                       <td
                         key={d.iso}
-                        className={`border-l border-gray-200 text-[10px] text-center px-0.5 py-1 ${
-                          insufficient ? "text-red-700 font-bold" : "text-gray-600"
-                        }`}
+                        className={`border-l border-gray-200 text-[10px] text-center px-0.5 py-1 ${cellClass}`}
                       >
-                        {assigned}/{required}
+                        {requested}/{required}
                       </td>
                     );
                   })}
