@@ -41,7 +41,7 @@ export default async function EditPage({
       .order("name"),
     supabase
       .from("shift_frames")
-      .select("id, name, color")
+      .select("id, name, color, start_time, end_time")
       .order("display_order")
       .order("name"),
     supabase
