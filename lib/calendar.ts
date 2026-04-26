@@ -113,10 +113,13 @@ export function defaultRequestMonth(): { year: number; month: number } {
   return shiftMonth(now.getFullYear(), now.getMonth() + 1, 1);
 }
 
-// MVP の day_category 判定(祝日は Step 8 で組み込み)。
-// 仕様書 4.4: 月-木=weekday, 金=friday, 土=saturday, 日=sunday_holiday
-export function dayCategoryFromWeekday(weekday: number): DayCategory {
-  if (weekday === 0) return "sunday_holiday";
+// 仕様書 4.4: 月-木=weekday, 金=friday, 土=saturday, 日 + 祝日=sunday_holiday
+// 仕様書 4.4 末尾「祝日が金土に重なる場合は sunday_holiday を優先」に従う。
+export function dayCategoryFromWeekday(
+  weekday: number,
+  isHoliday = false,
+): DayCategory {
+  if (isHoliday || weekday === 0) return "sunday_holiday";
   if (weekday === 5) return "friday";
   if (weekday === 6) return "saturday";
   return "weekday";

@@ -26,6 +26,7 @@ type Props = {
     iso: string;
     weekday: number;
   }[];
+  holidays: Record<string, string>;
 };
 
 const COLOR_BG: Record<string, string> = {
@@ -126,6 +127,7 @@ function CalendarView({
   assignments,
   year,
   month,
+  holidays,
 }: Props) {
   const staffById = useMemo(() => {
     const m = new Map<string, Staff>();
@@ -172,26 +174,39 @@ function CalendarView({
               {row.map((cell) => {
                 const inMonth =
                   cell.year === year && cell.month === month;
-                const dayColor =
-                  cell.weekday === 0
+                const holidayName = holidays[cell.iso] ?? null;
+                const isHoliday = !!holidayName;
+                const dayColor = isHoliday
+                  ? "text-red-600"
+                  : cell.weekday === 0
                     ? "text-red-600"
                     : cell.weekday === 6
                       ? "text-blue-600"
                       : "text-gray-700";
+                const cellBg = !inMonth
+                  ? "bg-gray-50"
+                  : isHoliday
+                    ? "bg-red-50"
+                    : "bg-white";
                 const dateAssigns = byDateFrame.get(cell.iso);
                 return (
                   <td
                     key={cell.iso}
-                    className={`border border-gray-200 align-top p-1 h-28 w-[14.28%] ${
-                      inMonth ? "bg-white" : "bg-gray-50"
-                    }`}
+                    title={holidayName ?? undefined}
+                    className={`border border-gray-200 align-top p-1 h-28 w-[14.28%] ${cellBg}`}
                   >
                     <div
                       className={`text-xs mb-1 ${dayColor} ${
                         inMonth ? "" : "opacity-50"
                       }`}
                     >
+                      {isHoliday && <span className="mr-0.5">㊗</span>}
                       {cell.day}
+                      {isHoliday && inMonth && (
+                        <span className="block text-[9px] truncate">
+                          {holidayName}
+                        </span>
+                      )}
                     </div>
                     {inMonth && dateAssigns && (
                       <div className="space-y-0.5">
@@ -244,6 +259,7 @@ function MatrixView({
   frames,
   assignments,
   daysInMonth,
+  holidays,
 }: Props) {
   const map = useMemo(() => {
     const m = new Map<string, Assignment>();
@@ -264,23 +280,32 @@ function MatrixView({
             <th className="bg-gray-100 px-2 py-1 text-xs font-medium border-r border-gray-200 sticky left-0 z-10">
               スタッフ
             </th>
-            {daysInMonth.map((d) => (
-              <th
-                key={d.iso}
-                className={`bg-gray-100 px-1 py-1 text-xs font-medium border-l border-gray-200 min-w-[2.5rem] ${
-                  d.weekday === 0
-                    ? "text-red-600"
-                    : d.weekday === 6
-                      ? "text-blue-600"
-                      : "text-gray-700"
-                }`}
-              >
-                <div>{d.day}</div>
-                <div className="text-[10px]">
-                  {WEEKDAY_LABELS[d.weekday]}
-                </div>
-              </th>
-            ))}
+            {daysInMonth.map((d) => {
+              const holidayName = holidays[d.iso] ?? null;
+              const isHoliday = !!holidayName;
+              const headerColor = isHoliday
+                ? "text-red-600 bg-red-50"
+                : d.weekday === 0
+                  ? "text-red-600 bg-gray-100"
+                  : d.weekday === 6
+                    ? "text-blue-600 bg-gray-100"
+                    : "text-gray-700 bg-gray-100";
+              return (
+                <th
+                  key={d.iso}
+                  title={holidayName ?? undefined}
+                  className={`px-1 py-1 text-xs font-medium border-l border-gray-200 min-w-[2.5rem] ${headerColor}`}
+                >
+                  <div>
+                    {isHoliday && <span className="mr-0.5">㊗</span>}
+                    {d.day}
+                  </div>
+                  <div className="text-[10px]">
+                    {WEEKDAY_LABELS[d.weekday]}
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>

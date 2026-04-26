@@ -6,6 +6,7 @@ import {
   lastDay,
   parseYearMonth,
 } from "@/lib/calendar";
+import { getHolidayMapForMonth } from "@/lib/holidays";
 import { RequestEditor } from "./RequestEditor";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +68,7 @@ export default async function RequestPage({
   }
 
   const weeks = buildMonthGrid(year, month);
+  const holidays = getHolidayMapForMonth(year, month);
   const frames = framesResult.data ?? [];
   const initialSelections = requestsResult.data ?? [];
 
@@ -108,6 +110,7 @@ export default async function RequestPage({
           weeks={weeks}
           frames={frames}
           initialSelections={initialSelections}
+          holidays={holidays}
         />
       )}
     </main>

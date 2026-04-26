@@ -7,6 +7,7 @@ import {
   parseYearMonth,
   weekdayOf,
 } from "@/lib/calendar";
+import { getHolidayMapForMonth } from "@/lib/holidays";
 import { EditMatrix } from "./EditMatrix";
 
 export const dynamic = "force-dynamic";
@@ -58,14 +59,18 @@ export default async function EditPage({
       .select("shift_frame_id, day_category, count"),
   ]);
 
+  const holidays = getHolidayMapForMonth(year, month);
   const days = Array.from({ length: lastDay(year, month) }, (_, i) => {
     const day = i + 1;
     const weekday = weekdayOf(year, month, day);
+    const iso = isoDate(year, month, day);
+    const holidayName = holidays[iso] ?? null;
     return {
       day,
-      iso: isoDate(year, month, day),
+      iso,
       weekday,
-      category: dayCategoryFromWeekday(weekday),
+      category: dayCategoryFromWeekday(weekday, !!holidayName),
+      holidayName,
     };
   });
 

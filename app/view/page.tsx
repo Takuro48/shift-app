@@ -7,6 +7,7 @@ import {
   shiftMonth,
   weekdayOf,
 } from "@/lib/calendar";
+import { getHolidayMapForMonth } from "@/lib/holidays";
 import { ViewSwitcher } from "./ViewSwitcher";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ export default async function ViewPage({
   ]);
 
   const weeks = buildMonthGrid(year, month);
+  const holidays = getHolidayMapForMonth(year, month);
   const daysInMonth = Array.from(
     { length: lastDay(year, month) },
     (_, i) => {
@@ -119,6 +121,7 @@ export default async function ViewPage({
         assignments={assignmentsResult.data ?? []}
         weeks={weeks}
         daysInMonth={daysInMonth}
+        holidays={holidays}
       />
     </main>
   );

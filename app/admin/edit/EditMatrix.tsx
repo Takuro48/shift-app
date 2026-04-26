@@ -26,6 +26,7 @@ type DayInfo = {
   iso: string;
   weekday: number;
   category: DayCategory;
+  holidayName: string | null;
 };
 
 type Props = {
@@ -216,23 +217,31 @@ export function EditMatrix(props: Props) {
                 <th className="bg-gray-100 px-2 py-1 text-xs font-medium border-r border-gray-200 sticky left-0 z-10">
                   スタッフ
                 </th>
-                {props.days.map((d) => (
-                  <th
-                    key={d.iso}
-                    className={`bg-gray-100 px-1 py-1 text-xs font-medium border-l border-gray-200 min-w-[2.5rem] ${
-                      d.weekday === 0
-                        ? "text-red-600"
-                        : d.weekday === 6
-                          ? "text-blue-600"
-                          : "text-gray-700"
-                    }`}
-                  >
-                    <div>{d.day}</div>
-                    <div className="text-[10px]">
-                      {WEEKDAY_LABELS[d.weekday]}
-                    </div>
-                  </th>
-                ))}
+                {props.days.map((d) => {
+                  const isHoliday = !!d.holidayName;
+                  const headerColor = isHoliday
+                    ? "text-red-600 bg-red-50"
+                    : d.weekday === 0
+                      ? "text-red-600 bg-gray-100"
+                      : d.weekday === 6
+                        ? "text-blue-600 bg-gray-100"
+                        : "text-gray-700 bg-gray-100";
+                  return (
+                    <th
+                      key={d.iso}
+                      title={d.holidayName ?? undefined}
+                      className={`px-1 py-1 text-xs font-medium border-l border-gray-200 min-w-[2.5rem] ${headerColor}`}
+                    >
+                      <div>
+                        {isHoliday && <span className="mr-0.5">㊗</span>}
+                        {d.day}
+                      </div>
+                      <div className="text-[10px]">
+                        {WEEKDAY_LABELS[d.weekday]}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>

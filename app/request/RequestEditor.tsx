@@ -21,6 +21,7 @@ type Props = {
   weeks: CalendarCell[][];
   frames: Frame[];
   initialSelections: { date: string; shift_frame_id: string }[];
+  holidays: Record<string, string>;
 };
 
 const COLOR_CHIP_SELECTED: Record<string, string> = {
@@ -47,6 +48,7 @@ export function RequestEditor({
   weeks,
   frames,
   initialSelections,
+  holidays,
 }: Props) {
   const router = useRouter();
   const [selections, setSelections] = useState<Set<string>>(
@@ -193,6 +195,7 @@ export function RequestEditor({
                     frames={frames}
                     selections={selections}
                     onToggle={toggle}
+                    holidayName={holidays[cell.iso] ?? null}
                   />
                 ))}
               </tr>
@@ -235,31 +238,44 @@ function CellView({
   frames,
   selections,
   onToggle,
+  holidayName,
 }: {
   cell: CalendarCell;
   frames: Frame[];
   selections: Set<string>;
   onToggle: (date: string, frameId: string) => void;
+  holidayName: string | null;
 }) {
-  const dayColor =
-    cell.weekday === 0
+  const isHoliday = !!holidayName;
+  const dayColor = isHoliday
+    ? "text-red-600"
+    : cell.weekday === 0
       ? "text-red-600"
       : cell.weekday === 6
         ? "text-blue-600"
         : "text-gray-700";
 
+  const cellBg = !cell.inCurrentMonth
+    ? "bg-gray-50"
+    : isHoliday
+      ? "bg-red-50"
+      : "bg-white";
+
   return (
     <td
-      className={`border border-gray-200 align-top p-1 h-24 w-[14.28%] ${
-        cell.inCurrentMonth ? "bg-white" : "bg-gray-50"
-      }`}
+      className={`border border-gray-200 align-top p-1 h-24 w-[14.28%] ${cellBg}`}
+      title={holidayName ?? undefined}
     >
       <div
         className={`text-xs mb-1 ${dayColor} ${
           cell.inCurrentMonth ? "" : "opacity-50"
         }`}
       >
+        {isHoliday && <span className="mr-0.5">㊗</span>}
         {cell.day}
+        {isHoliday && cell.inCurrentMonth && (
+          <span className="block text-[9px] truncate">{holidayName}</span>
+        )}
       </div>
       {cell.inCurrentMonth && (
         <div className="flex flex-wrap gap-1">
