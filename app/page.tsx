@@ -31,6 +31,14 @@ export default async function Home() {
               スタッフ名簿管理 →
             </Link>
           </li>
+          <li>
+            <Link
+              href="/admin/settings"
+              className="underline hover:no-underline"
+            >
+              シフト枠 + 必要人数の設定 →
+            </Link>
+          </li>
         </ul>
         <p className="text-xs text-gray-400 pt-2">
           動作確認用ページ(Step 5 でログイン画面に置き換え予定)
