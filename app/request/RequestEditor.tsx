@@ -217,10 +217,13 @@ export function RequestEditor({
         )}
         {error && <span className="text-xs text-red-600">{error}</span>}
         <Link
-          href="/"
-          className="text-xs text-gray-500 hover:underline ml-auto"
+          href={`/view?staff=${staffId}`}
+          className="text-xs text-blue-900 hover:underline ml-auto"
         >
-          ← ホームに戻る
+          確定シフトを見る →
+        </Link>
+        <Link href="/" className="text-xs text-gray-500 hover:underline">
+          ホームに戻る
         </Link>
       </div>
     </div>

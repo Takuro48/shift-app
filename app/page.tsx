@@ -28,6 +28,15 @@ export default async function Home() {
         <LoginForm staff={data ?? []} />
       )}
 
+      <p className="text-sm">
+        <Link
+          href="/view"
+          className="text-blue-900 underline hover:no-underline"
+        >
+          確定シフトを見る →
+        </Link>
+      </p>
+
       <hr className="border-gray-200" />
 
       <section className="space-y-2">
