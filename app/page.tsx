@@ -1,31 +1,38 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [staffResult, framesResult] = await Promise.all([
-    supabase.from("staff").select("id, name").order("display_order"),
-    supabase.from("shift_frames").select("id, name").order("display_order"),
-  ]);
+  const { data, error } = await supabase
+    .from("staff")
+    .select("id, name")
+    .order("display_order")
+    .order("name");
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8 font-sans">
-      <div className="text-center space-y-3">
+    <main className="max-w-2xl mx-auto p-6 font-sans space-y-8">
+      <header className="space-y-1">
         <h1 className="text-2xl font-bold">シフト表アプリ</h1>
-        <p className="text-sm text-gray-600">
-          DB 接続: {staffResult.error ? "NG" : "OK"}
+        <p className="text-xs text-gray-500">
+          名簿から自分の名前を選んで希望を入力してください。
         </p>
-        <p className="text-sm text-gray-600">
-          登録スタッフ: {staffResult.data?.length ?? 0} 名 / シフト枠:{" "}
-          {framesResult.data?.length ?? 0} 件
+      </header>
+
+      {error ? (
+        <p className="text-sm text-red-600">
+          スタッフ取得エラー: {error.message}
         </p>
-        {staffResult.error && (
-          <p className="text-xs text-red-500">
-            {staffResult.error.code}: {staffResult.error.message}
-          </p>
-        )}
-        <ul className="text-sm text-blue-900 space-y-1 pt-2">
+      ) : (
+        <LoginForm staff={data ?? []} />
+      )}
+
+      <hr className="border-gray-200" />
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-gray-700">管理メニュー</h2>
+        <ul className="text-sm text-blue-900 space-y-1">
           <li>
             <Link href="/admin/staff" className="underline hover:no-underline">
               スタッフ名簿管理 →
@@ -40,10 +47,7 @@ export default async function Home() {
             </Link>
           </li>
         </ul>
-        <p className="text-xs text-gray-400 pt-2">
-          動作確認用ページ(Step 5 でログイン画面に置き換え予定)
-        </p>
-      </div>
+      </section>
     </main>
   );
 }
