@@ -1,5 +1,7 @@
 // 月カレンダーの組み立て。タイムゾーンに依存しないよう全部 UTC ベースで計算する。
 
+import type { DayCategory } from "@/types/database";
+
 export type CalendarCell = {
   iso: string; // YYYY-MM-DD
   year: number;
@@ -109,6 +111,15 @@ export function defaultRequestMonth(): { year: number; month: number } {
   // 希望提出のデフォルトは「翌月」
   const now = new Date();
   return shiftMonth(now.getFullYear(), now.getMonth() + 1, 1);
+}
+
+// MVP の day_category 判定(祝日は Step 8 で組み込み)。
+// 仕様書 4.4: 月-木=weekday, 金=friday, 土=saturday, 日=sunday_holiday
+export function dayCategoryFromWeekday(weekday: number): DayCategory {
+  if (weekday === 0) return "sunday_holiday";
+  if (weekday === 5) return "friday";
+  if (weekday === 6) return "saturday";
+  return "weekday";
 }
 
 export function parseYearMonth(

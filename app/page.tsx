@@ -46,6 +46,11 @@ export default async function Home() {
               シフト枠 + 必要人数の設定 →
             </Link>
           </li>
+          <li>
+            <Link href="/admin/edit" className="underline hover:no-underline">
+              シフト編集(マトリクス) →
+            </Link>
+          </li>
         </ul>
       </section>
     </main>
