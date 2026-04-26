@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +25,15 @@ export default async function Home() {
             {staffResult.error.code}: {staffResult.error.message}
           </p>
         )}
-        <p className="text-xs text-gray-400">
-          Step 2 動作確認用ページ(Step 5 でログイン画面に置き換え予定)
+        <ul className="text-sm text-blue-900 space-y-1 pt-2">
+          <li>
+            <Link href="/admin/staff" className="underline hover:no-underline">
+              スタッフ名簿管理 →
+            </Link>
+          </li>
+        </ul>
+        <p className="text-xs text-gray-400 pt-2">
+          動作確認用ページ(Step 5 でログイン画面に置き換え予定)
         </p>
       </div>
     </main>

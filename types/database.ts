@@ -33,6 +33,7 @@ export type Database = {
           password_hash?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       shift_frames: {
         Row: {
@@ -59,6 +60,7 @@ export type Database = {
           color?: string;
           display_order?: number;
         };
+        Relationships: [];
       };
       required_counts: {
         Row: {
@@ -79,6 +81,15 @@ export type Database = {
           day_category?: DayCategory;
           count?: number;
         };
+        Relationships: [
+          {
+            foreignKeyName: "required_counts_shift_frame_id_fkey";
+            columns: ["shift_frame_id"];
+            isOneToOne: false;
+            referencedRelation: "shift_frames";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       shift_requests: {
         Row: {
@@ -108,6 +119,22 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "shift_requests_staff_id_fkey";
+            columns: ["staff_id"];
+            isOneToOne: false;
+            referencedRelation: "staff";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shift_requests_shift_frame_id_fkey";
+            columns: ["shift_frame_id"];
+            isOneToOne: false;
+            referencedRelation: "shift_frames";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       shift_assignments: {
         Row: {
@@ -137,7 +164,35 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "shift_assignments_staff_id_fkey";
+            columns: ["staff_id"];
+            isOneToOne: false;
+            referencedRelation: "staff";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shift_assignments_shift_frame_id_fkey";
+            columns: ["shift_frame_id"];
+            isOneToOne: false;
+            referencedRelation: "shift_frames";
+            referencedColumns: ["id"];
+          },
+        ];
       };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 };
