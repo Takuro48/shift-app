@@ -54,15 +54,6 @@ const COLOR_BG: Record<string, string> = {
   red: "bg-red-200",
 };
 
-// 希望帯(セルの左右に細く差し込む)
-const COLOR_BAR: Record<string, string> = {
-  green: "bg-emerald-500",
-  indigo: "bg-indigo-500",
-  amber: "bg-amber-500",
-  gray: "bg-gray-500",
-  red: "bg-red-500",
-};
-
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
 function assignmentKey(staff_id: string, date: string): string {
@@ -108,21 +99,6 @@ export function EditMatrix(props: Props) {
     }
     return m;
   }, [props.required]);
-
-  // 各 frame を時間帯から左/右に振り分ける。
-  //  - start_hour < 12 → 左(早番系)
-  //  - end_hour   >= 17 → 右(遅番系)
-  // 通し(両方該当)は左右両方に色がつく。
-  // どちらにも該当しない枠(休など)は中央に小さい「希」マーク。
-  const framePosition = useMemo(() => {
-    const m = new Map<string, { left: boolean; right: boolean }>();
-    for (const f of props.frames) {
-      const sh = parseInt(f.start_time.slice(0, 2), 10) || 0;
-      const eh = parseInt(f.end_time.slice(0, 2), 10) || 0;
-      m.set(f.id, { left: sh < 12, right: eh >= 17 });
-    }
-    return m;
-  }, [props.frames]);
 
   const goMonth = (delta: number) => {
     const next = shiftMonth(props.year, props.month, delta);
@@ -287,22 +263,14 @@ export function EditMatrix(props: Props) {
                       : null;
                     const isRest =
                       a !== undefined && a.shift_frame_id === null;
-                    // 希望の表示: 休枠は色バー無しで「休」テキスト、それ以外は左/右に色帯
-                    let leftColor: string | null = null;
-                    let rightColor: string | null = null;
-                    let restRequested = false;
-                    let otherRequested = false;
-                    for (const f of props.frames) {
-                      if (!requestSet.has(requestKey(s.id, d.iso, f.id))) continue;
-                      if (f.name.includes("休")) {
-                        restRequested = true;
-                        continue;
+                    // 割当が無いセルでは、希望されている枠の頭文字を連結表示する。
+                    const requestChars: string[] = [];
+                    if (!a) {
+                      for (const f of props.frames) {
+                        if (requestSet.has(requestKey(s.id, d.iso, f.id))) {
+                          requestChars.push(f.name.charAt(0));
+                        }
                       }
-                      const pos = framePosition.get(f.id);
-                      if (!pos) continue;
-                      if (pos.left && !leftColor) leftColor = f.color;
-                      if (pos.right && !rightColor) rightColor = f.color;
-                      if (!pos.left && !pos.right) otherRequested = true;
                     }
                     const bg = frame
                       ? (COLOR_BG[frame.color] ?? "bg-gray-200")
@@ -313,13 +281,11 @@ export function EditMatrix(props: Props) {
                       ? frame.name.charAt(0)
                       : isRest
                         ? "休"
-                        : !a && restRequested
-                          ? "休"
-                          : "";
-                    // 希望のみで割当無しの「休」は薄いグレー文字で区別
+                        : requestChars.join("");
+                    // 希望のみ(未割当)はグレー文字で「予定ではなく希望」と区別
                     const labelClass =
-                      !a && restRequested && !frame && !isRest
-                        ? "text-gray-400"
+                      !a && requestChars.length > 0
+                        ? "text-gray-500"
                         : "";
                     return (
                       <td
@@ -330,25 +296,6 @@ export function EditMatrix(props: Props) {
                         <div className={`h-7 leading-7 text-xs ${labelClass}`}>
                           {label}
                         </div>
-                        {!a && leftColor && (
-                          <span
-                            className={`absolute top-0 bottom-0 left-0 w-1.5 ${
-                              COLOR_BAR[leftColor] ?? "bg-gray-500"
-                            }`}
-                          />
-                        )}
-                        {!a && rightColor && (
-                          <span
-                            className={`absolute top-0 bottom-0 right-0 w-1.5 ${
-                              COLOR_BAR[rightColor] ?? "bg-gray-500"
-                            }`}
-                          />
-                        )}
-                        {!a && otherRequested && !leftColor && !rightColor && (
-                          <span className="absolute top-0 right-0 text-[8px] text-blue-700 px-0.5">
-                            希
-                          </span>
-                        )}
                         {a?.status === "confirmed" && (
                           <span className="absolute bottom-0 right-0 text-[8px] text-emerald-700 px-0.5">
                             ✓
