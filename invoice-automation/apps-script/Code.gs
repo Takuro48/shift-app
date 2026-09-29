@@ -1,8 +1,8 @@
 /**
  * 請求書取り込み（Google Apps Script）
  *
- * Googleドライブの「請求書/受付」フォルダに入れた請求書（PDF・画像）を Claude で読み取り、
- * このスプレッドシートの「支払い一覧」に登録する。
+ * Googleドライブの「請求書/受付」フォルダに入れた請求書（PDF・画像）を、
+ * 「📥 請求書を取り込む」ボタンで Claude に読み取らせ、このスプレッドシートの「支払い一覧」に登録する。
  * ステータスを「支払済」にすると、支払日と「お振込みしました」の連絡メール文を自動で入れる。
  *
  * - 銀行振込・メール送信は行わない（メール文はテキストで出力するだけ）
@@ -26,7 +26,7 @@ const CONFIG = {
   REQUIRE_CHECKER: true,                  // true: 確認者が空欄だと「支払済」にできない
   MAX_PDF_BYTES: 20 * 1024 * 1024,
   MAX_IMAGE_BYTES: 5 * 1024 * 1024,
-  MAX_RETRIES: 3,                          // 通信エラー時に再挑戦する回数（自動取り込みの回数）
+  MAX_RETRIES: 3,                          // 通信エラー時、取り込みボタンを押すたびに再挑戦する回数
   MAX_RUN_MS: 4.5 * 60 * 1000,             // 1回の実行で処理に使う最大時間（上限6分）
   TIMEZONE: 'Asia/Tokyo',
 };
@@ -103,9 +103,6 @@ function onOpen() {
     .addItem('📥 請求書を取り込む', 'menuImport')
     .addItem('✉️ 選択行の連絡メール文を表示', 'menuShowMail')
     .addSeparator()
-    .addItem('⏱ 自動取り込みをON（5分ごと）', 'menuEnableAuto')
-    .addItem('⏹ 自動取り込みをOFF', 'menuDisableAuto')
-    .addSeparator()
     .addItem('⚙️ 初期設定', 'menuSetup')
     .addItem('🔑 APIキーを設定', 'menuSetApiKey')
     .addToUi();
@@ -120,32 +117,6 @@ function menuImport() {
   } catch (e) {
     ui.alert('取り込みを中止しました', String(e.message || e), ui.ButtonSet.OK);
   }
-}
-
-/** 5分ごとの自動実行（トリガーから呼ばれる） */
-function autoImport() {
-  try {
-    processInbox();
-  } catch (e) {
-    appendLog('エラー', '', String(e.message || e));
-  }
-}
-
-function menuEnableAuto() {
-  removeAutoTriggers();
-  ScriptApp.newTrigger('autoImport').timeBased().everyMinutes(5).create();
-  SpreadsheetApp.getUi().alert('自動取り込みをONにしました。「受付」フォルダを5分ごとに確認します。');
-}
-
-function menuDisableAuto() {
-  removeAutoTriggers();
-  SpreadsheetApp.getUi().alert('自動取り込みをOFFにしました。');
-}
-
-function removeAutoTriggers() {
-  ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'autoImport') ScriptApp.deleteTrigger(t);
-  });
 }
 
 function menuSetApiKey() {
@@ -809,7 +780,7 @@ function summarize(r) {
     '対象外（請求書でない）: ' + (r.notInvoice || 0) + '件',
     '読み取りエラー: ' + (r.errors || 0) + '件',
   ];
-  if (r.retry) lines.push('通信エラーで次回に再挑戦: ' + r.retry + '件');
+  if (r.retry) lines.push('通信エラーのため受付に残しました（もう一度押すと再挑戦）: ' + r.retry + '件');
   if (r.remaining) lines.push('時間切れで未処理: ' + r.remaining + '件（もう一度実行してください）');
   lines.push('', '詳しくは「' + CONFIG.LOG_SHEET_NAME + '」シートを確認してください。');
   return lines.join('\n');

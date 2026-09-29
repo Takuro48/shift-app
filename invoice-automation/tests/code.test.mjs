@@ -149,7 +149,7 @@ test('APIが400（パスワード付きPDFなど）→ エラー行を残して�
   assert.match(rowOf(env, 2)[col(env, '備考')], /パスワード付きPDFの可能性/);
 });
 
-test('混雑(529)・通信エラーは受付に残して次回再挑戦、3回目でエラー行', () => {
+test('混雑(529)・通信エラーは受付に残し、次に押したとき再挑戦、3回目でエラー行', () => {
   const env = loadGas({ responses: [{ code: 529, body: '{}' }, { throw: 'timeout' }, { code: 500, body: '' }] });
   const f = env.inbox.add(new FakeFile('a.pdf', PDF));
   assert.equal(env.gas.processInbox().retry, 1);
