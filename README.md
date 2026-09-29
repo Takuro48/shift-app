@@ -37,4 +37,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## 請求書処理自動化
 
-Gmailの請求書PDFをGoogle Driveに保存し、支払い一覧シートへ登録するPythonツールを [`invoice-automation/`](invoice-automation/README.md) に置いています（Next.jsアプリとは独立）。
+Googleドライブの「受付」フォルダに入れた請求書をClaudeで読み取り、スプレッドシート「支払い一覧」へ登録するGoogle Apps Scriptを [`invoice-automation/`](invoice-automation/README.md) に置いています（Next.jsアプリとは独立）。

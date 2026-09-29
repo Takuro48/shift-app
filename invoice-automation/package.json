@@ -1,0 +1,8 @@
+{
+  "name": "invoice-automation",
+  "private": true,
+  "description": "請求書取り込み（Google Apps Script）のテスト用",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}

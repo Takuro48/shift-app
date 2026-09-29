@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate Google Apps Script tool, not part of the Next.js app
+    "invoice-automation/**",
   ]),
 ]);
 
