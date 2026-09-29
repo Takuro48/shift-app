@@ -1,0 +1,17 @@
+# 秘密情報（絶対にコミットしない）
+.env
+credentials.json
+client_secret*.json
+token.json
+*.pem
+
+# 実行時データ・ログ
+data/
+logs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
