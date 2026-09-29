@@ -67,7 +67,7 @@ def pdf_attachment(filename="請求書_INV-1234.pdf", text="INVOICE total 110000
 def config(tmp_path) -> Config:
     setup_logger(None)
     return Config(
-        openai_api_key="test", openai_model="test-model", drive_root_folder_id="root",
+        anthropic_api_key="test", anthropic_model="test-model", drive_root_folder_id="root",
         spreadsheet_id="sheet", sheet_name="支払い一覧", gmail_account="", drive_scope="file",
         credentials_path=tmp_path / "credentials.json", token_path=tmp_path / "token.json",
         timezone="Asia/Tokyo", confidence_threshold=0.8, scan_days=30, data_dir=tmp_path / "data",

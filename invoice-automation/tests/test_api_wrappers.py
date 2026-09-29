@@ -1,11 +1,11 @@
-"""Google API / OpenAI クライアントを模したオブジェクトで、ラッパーの呼び出し内容を検証する。"""
+"""Google API / Anthropic クライアントを模したオブジェクトで、ラッパーの呼び出し内容を検証する。"""
 import json
 from datetime import date
 from types import SimpleNamespace
 
 from conftest import make_pdf
 from drive_service import DriveService
-from invoice_parser import OpenAIInvoiceExtractor, parse_invoice
+from invoice_parser import ClaudeInvoiceExtractor, parse_invoice
 from models import SHEET_HEADERS
 from sheets_service import SheetsService
 
@@ -107,42 +107,56 @@ def test_sheets_keeps_existing_header_and_appends_raw():
     assert ss.v.calls[-1] == ("append", "'支払い一覧'!A1", "RAW", [[1, "未払い"]])
 
 
-class FakeCompletions:
-    def __init__(self, content):
+class FakeMessages:
+    def __init__(self, content, stop_reason="end_turn"):
         self.content = content
+        self.stop_reason = stop_reason
         self.kwargs = None
 
     def create(self, **kw):
         self.kwargs = kw
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=self.content))])
+        return SimpleNamespace(stop_reason=self.stop_reason,
+                               content=[SimpleNamespace(type="text", text=self.content)])
 
 
-def _extract(content, pdf_text):
-    comp = FakeCompletions(content)
-    client = SimpleNamespace(chat=SimpleNamespace(completions=comp))
+def _extract(content, pdf_text, pdf_bytes=b"default", stop_reason="end_turn"):
+    msgs = FakeMessages(content, stop_reason)
+    client = SimpleNamespace(beta=SimpleNamespace(messages=msgs))
     ext = parse_invoice(
-        OpenAIInvoiceExtractor("k", "m", client=client),
+        ClaudeInvoiceExtractor("k", "m", client=client),
         email_subject="請求書", email_sender="a", email_body="振込先: B銀行", received_date=date(2026, 9, 29),
-        pdf_filename="x.pdf", pdf_text=pdf_text, pdf_bytes=make_pdf("x"),
+        pdf_filename="x.pdf", pdf_text=pdf_text,
+        pdf_bytes=make_pdf("x") if pdf_bytes == b"default" else pdf_bytes,
     )
-    return ext, comp.kwargs
+    return ext, msgs.kwargs
 
 
-def test_openai_extractor_text_pdf():
-    ext, kw = _extract(json.dumps({"is_invoice": True, "confidence": 0.9, "amount_total": "1,100"}), "請求書 1,100円")
+def test_claude_extractor_sends_pdf_document_and_schema():
+    ext, kw = _extract(json.dumps({"is_invoice": True, "confidence": 0.9, "amount_total": 1100}), "請求書 1,100円")
     assert ext.amount_total == 1100
-    assert kw["response_format"] == {"type": "json_object"} and kw["model"] == "m"
-    parts = kw["messages"][1]["content"]
-    assert len(parts) == 1 and "振込先: B銀行" in parts[0]["text"] and "請求書 1,100円" in parts[0]["text"]
+    assert kw["model"] == "m" and kw["system"].startswith("あなたは日本企業向けの請求書解析AI")
+    fmt = kw["output_config"]["format"]
+    assert fmt["type"] == "json_schema" and fmt["schema"]["additionalProperties"] is False
+    assert set(fmt["schema"]["required"]) >= {"is_invoice", "confidence", "amount_total", "due_date"}
+    assert kw["fallbacks"] == "default" and kw["betas"] == ["server-side-fallback-2026-07-01"]
+    doc, text = kw["messages"][0]["content"]
+    assert doc["type"] == "document" and doc["source"]["media_type"] == "application/pdf"
+    assert "振込先: B銀行" in text["text"] and "添付のPDFドキュメントを参照" in text["text"]
 
 
-def test_openai_extractor_sends_pdf_when_no_text():
-    _, kw = _extract("{}", "")
-    parts = kw["messages"][1]["content"]
-    assert parts[1]["type"] == "file" and parts[1]["file"]["file_data"].startswith("data:application/pdf;base64,")
+def test_claude_extractor_uses_text_when_pdf_too_large_or_missing():
+    _, kw = _extract("{}", "請求書 本文テキスト", pdf_bytes=None)
+    parts = kw["messages"][0]["content"]
+    assert len(parts) == 1 and "請求書 本文テキスト" in parts[0]["text"]
 
 
-def test_openai_extractor_invalid_json():
+def test_claude_extractor_invalid_json():
     import pytest
     with pytest.raises(ValueError):
         _extract("not json", "text")
+
+
+def test_claude_extractor_refusal():
+    import pytest
+    with pytest.raises(ValueError, match="拒否"):
+        _extract("", "text", stop_reason="refusal")

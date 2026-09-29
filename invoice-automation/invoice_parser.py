@@ -1,4 +1,4 @@
-"""PDFテキスト抽出とOpenAIによる請求情報抽出（仕様書 §8, §27）。"""
+"""PDFテキスト抽出とClaude（Anthropic API）による請求情報抽出（仕様書 §8, §27）。"""
 from __future__ import annotations
 
 import base64
@@ -13,7 +13,7 @@ from pypdf import PdfReader
 from models import InvoiceExtraction
 
 MAX_TEXT_CHARS = 30_000
-MAX_PDF_BYTES_FOR_AI = 20 * 1024 * 1024
+MAX_PDF_BYTES_FOR_AI = 20 * 1024 * 1024  # base64化しても1リクエスト32MBの上限に収まるサイズ
 
 SYSTEM_PROMPT = """あなたは日本企業向けの請求書解析AIです。
 入力されたメール本文および請求書PDFの内容から、請求情報をJSONで抽出してください。
@@ -29,29 +29,7 @@ SYSTEM_PROMPT = """あなたは日本企業向けの請求書解析AIです。
 - 振込先口座がPDFではなくメール本文にある場合もメール本文から取得する
 - 見積書・納品書・発注書・契約書・パンフレットの場合は is_invoice=false
 - confidence は「これが支払うべき請求書であり、抽出値が正しい」ことへの確信度（0.0〜1.0）
-- JSON以外を返さない
-
-出力形式：
-{
-  "is_invoice": true,
-  "confidence": 0.0,
-  "vendor_name": "",
-  "invoice_number": "",
-  "invoice_date": "",
-  "due_date": "",
-  "amount_total": 0,
-  "tax_amount": 0,
-  "currency": "JPY",
-  "bank_name": "",
-  "bank_branch": "",
-  "account_type": "",
-  "account_number": "",
-  "account_holder": "",
-  "description": "",
-  "payment_method": "",
-  "needs_review": false,
-  "review_reasons": []
-}"""
+"""
 
 
 @dataclass
@@ -84,10 +62,13 @@ class InvoiceExtractor(Protocol):
 
 
 def build_user_prompt(*, email_subject: str, email_sender: str, email_body: str, received_date: date,
-                      pdf_filename: str, pdf_text: str) -> str:
-    pdf_part = pdf_text[:MAX_TEXT_CHARS] if pdf_text else "（テキスト抽出不可。添付PDFファイルを直接読んでください）"
+                      pdf_filename: str, pdf_text: str, pdf_attached: bool) -> str:
     if not pdf_filename:
         pdf_part = "（PDF添付なし）"
+    elif pdf_attached:
+        pdf_part = "（添付のPDFドキュメントを参照）"
+    else:
+        pdf_part = pdf_text[:MAX_TEXT_CHARS] or "（PDFを読み取れませんでした）"
     return (
         f"メール受信日: {received_date.isoformat()}\n"
         f"差出人: {email_sender}\n"
@@ -97,35 +78,74 @@ def build_user_prompt(*, email_subject: str, email_sender: str, email_body: str,
     )
 
 
-class OpenAIInvoiceExtractor:
+_STR = {"type": "string"}
+_INT_OR_NULL = {"anyOf": [{"type": "integer"}, {"type": "null"}]}
+_FIELDS = {
+    "is_invoice": {"type": "boolean"},
+    "confidence": {"type": "number"},
+    "vendor_name": _STR,
+    "invoice_number": _STR,
+    "invoice_date": {"type": "string", "description": "YYYY-MM-DD。不明なら空文字"},
+    "due_date": {"type": "string", "description": "YYYY-MM-DD。不明なら空文字"},
+    "amount_total": _INT_OR_NULL,
+    "tax_amount": _INT_OR_NULL,
+    "currency": _STR,
+    "bank_name": _STR,
+    "bank_branch": _STR,
+    "account_type": _STR,
+    "account_number": _STR,
+    "account_holder": _STR,
+    "description": _STR,
+    "payment_method": _STR,
+    "needs_review": {"type": "boolean"},
+    "review_reasons": {"type": "array", "items": _STR},
+}
+# 仕様書 §27 の出力形式。structured outputs でこの形のJSONだけが返る
+OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": _FIELDS,
+    "required": list(_FIELDS),
+    "additionalProperties": False,
+}
+
+
+class ClaudeInvoiceExtractor:
     def __init__(self, api_key: str, model: str, client=None):
         if client is None:
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key, max_retries=3, timeout=120)
+            import anthropic
+            client = anthropic.Anthropic(api_key=api_key, max_retries=3, timeout=300)
         self.client = client
         self.model = model
 
     def extract(self, *, email_subject, email_sender, email_body, received_date,
                 pdf_filename, pdf_text, pdf_bytes) -> dict:
-        prompt = build_user_prompt(
-            email_subject=email_subject, email_sender=email_sender, email_body=email_body,
-            received_date=received_date, pdf_filename=pdf_filename, pdf_text=pdf_text,
-        )
-        content: list[dict] = [{"type": "text", "text": prompt}]
-        # テキスト抽出できないPDF（スキャン画像など）はPDFそのものを渡してAI側で読み取る（OCR代替）
-        if not pdf_text and pdf_bytes and len(pdf_bytes) <= MAX_PDF_BYTES_FOR_AI:
-            b64 = base64.b64encode(pdf_bytes).decode("ascii")
-            content.append({"type": "file", "file": {
-                "filename": pdf_filename or "invoice.pdf",
-                "file_data": f"data:application/pdf;base64,{b64}",
+        # PDFはドキュメントとして渡す（表のレイアウトやスキャン画像もClaudeが直接読む。OCR不要）
+        attach = bool(pdf_bytes) and len(pdf_bytes) <= MAX_PDF_BYTES_FOR_AI
+        content: list[dict] = []
+        if attach:
+            content.append({"type": "document", "source": {
+                "type": "base64", "media_type": "application/pdf",
+                "data": base64.b64encode(pdf_bytes).decode("ascii"),
             }})
-        resp = self.client.chat.completions.create(
+        content.append({"type": "text", "text": build_user_prompt(
+            email_subject=email_subject, email_sender=email_sender, email_body=email_body,
+            received_date=received_date, pdf_filename=pdf_filename, pdf_text=pdf_text, pdf_attached=attach,
+        )})
+        resp = self.client.beta.messages.create(
             model=self.model,
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": content}],
+            max_tokens=16000,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": content}],
+            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": OUTPUT_SCHEMA}},
+            # 安全判定で断られた場合はサーバー側で別モデルに自動で引き継ぐ
+            betas=["server-side-fallback-2026-07-01"],
+            fallbacks="default",
         )
-        raw = resp.choices[0].message.content or ""
+        if resp.stop_reason == "refusal":
+            raise ValueError("AIが解析を拒否しました")
+        if resp.stop_reason == "max_tokens":
+            raise ValueError("AIの出力が途中で切れました")
+        raw = next((b.text for b in resp.content if b.type == "text"), "")
         try:
             return json.loads(raw)
         except json.JSONDecodeError as e:

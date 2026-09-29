@@ -162,7 +162,7 @@ def test_password_pdf(config):
 
 def test_ai_failure_leaves_error_row_and_continues(config):
     msgs = [make_message("m1", attachments=[pdf_attachment()]), make_message("m2", attachments=[pdf_attachment()])]
-    ext = FakeExtractor(error=RuntimeError("OpenAI timeout"))
+    ext = FakeExtractor(error=RuntimeError("API timeout"))
     p, _, drive, sheets, _ = make_pipeline(config, msgs, extractor=ext)
     results = p.run(30)
     assert [r.outcome for r in results] == ["registered", "registered"]

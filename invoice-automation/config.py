@@ -17,8 +17,8 @@ def _path(value: str, default: str) -> Path:
 
 @dataclass(frozen=True)
 class Config:
-    openai_api_key: str
-    openai_model: str
+    anthropic_api_key: str
+    anthropic_model: str
     drive_root_folder_id: str
     spreadsheet_id: str
     sheet_name: str
@@ -42,8 +42,8 @@ class Config:
     def missing_for_run(self) -> list[str]:
         """通常実行に必要だが未設定の項目名を返す。"""
         missing = []
-        if not self.openai_api_key:
-            missing.append("OPENAI_API_KEY")
+        if not self.anthropic_api_key:
+            missing.append("ANTHROPIC_API_KEY")
         if not self.drive_root_folder_id:
             missing.append("DRIVE_ROOT_FOLDER_ID")
         if not self.spreadsheet_id:
@@ -58,8 +58,8 @@ def load_config(env_file: Path | None = None) -> Config:
     if drive_scope not in ("file", "full"):
         raise ValueError("DRIVE_SCOPE は file または full を指定してください")
     return Config(
-        openai_api_key=env("OPENAI_API_KEY", "").strip(),
-        openai_model=env("OPENAI_MODEL", "").strip() or "gpt-4.1-mini",
+        anthropic_api_key=env("ANTHROPIC_API_KEY", "").strip(),
+        anthropic_model=env("ANTHROPIC_MODEL", "").strip() or "claude-opus-5-5",
         drive_root_folder_id=env("DRIVE_ROOT_FOLDER_ID", "").strip(),
         spreadsheet_id=env("SPREADSHEET_ID", "").strip(),
         sheet_name=env("SHEET_NAME", "").strip() or "支払い一覧",

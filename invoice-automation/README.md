@@ -20,7 +20,7 @@ Gmail → 請求書メール検出 → PDF取得 → AI解析 → Google Drive �
 | --- | --- |
 | 請求書メール検出 | 過去30日の「PDF添付メール」と「請求・invoice を含むメール」を検索し、件名・本文・ファイル名・PDF本文からスコア判定（4点以上を候補、6点未満は要確認）。自分が送ったメールは対象外 |
 | PDF取得 | 1通に複数PDFがあれば全部取得。見積書・納品書・発注書・契約書・パンフレットは除外 |
-| PDF解析 | PDFからテキストを取り出し、OpenAIで請求情報をJSON抽出（スキャンPDFはPDFごとAIに読ませる）。結果は必ずスキーマ検証 |
+| PDF解析 | PDFをそのまま Claude（Anthropic API）に渡して請求情報をJSON抽出（スキャンPDFもOCR不要で読める）。出力形式はAPI側で固定し、受け取った値もスキーマ検証 |
 | Drive保存 | `請求書/2026/09/2026-09-25_株式会社サンプル_110000_INV-1234.pdf` の形で保存（請求日で分類、同名は `_2`, `_3`） |
 | Sheet登録 | 「支払い一覧」シートにA〜X列の形式で1行追加（シートやヘッダーが無ければ自動作成） |
 | 二重処理防止 | 処理済みの Gmail message_id を `data/processed_message_ids.json` に記録。さらにシートR列のmessage_idも確認するので、記録ファイルが消えても二重登録しません |
@@ -85,7 +85,15 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-`.env` をテキストエディタで開き、`OPENAI_API_KEY=` に OpenAI のAPIキー（<https://platform.openai.com/api-keys> で発行）を入れます。
+`.env` をテキストエディタで開き、`ANTHROPIC_API_KEY=` に Anthropic のAPIキーを入れます。
+
+APIキーの発行方法:
+
+1. <https://console.anthropic.com/> にログイン（アカウントが無ければ作成）
+2. 「Billing」で支払い方法を登録し、クレジットを購入
+3. 「API Keys」→「Create Key」でキーを作成し、表示された `sk-ant-...` をコピー
+
+> Claude のチャット（claude.ai）の契約とは別に、APIの利用料（従量課金）がかかります。
 
 ### 9. Google Drive の「請求書」フォルダを設定
 
@@ -165,8 +173,8 @@ Windows はタスクスケジューラで `.venv\Scripts\python.exe main.py`（�
 
 | 項目 | 説明 | 既定値 |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | OpenAI APIキー | （必須） |
-| `OPENAI_MODEL` | 使用モデル（PDF読み取りに対応したモデル） | `gpt-4.1-mini` |
+| `ANTHROPIC_API_KEY` | Anthropic（Claude）APIキー | （必須） |
+| `ANTHROPIC_MODEL` | 使用するClaudeモデル | `claude-opus-5-5` |
 | `DRIVE_ROOT_FOLDER_ID` | 「請求書」フォルダのID | （必須） |
 | `SPREADSHEET_ID` | 支払い一覧スプレッドシートのID | （必須） |
 | `SHEET_NAME` | シート名 | `支払い一覧` |
@@ -207,7 +215,7 @@ invoice-automation/
   gmail_service.py     Gmail 検索・本文/添付取得
   drive_service.py     Drive 保存
   sheets_service.py    支払い一覧 読み書き
-  invoice_parser.py    PDFテキスト抽出・OpenAI抽出
+  invoice_parser.py    PDFテキスト抽出・Claudeによる抽出
   pipeline.py          1通ごとの処理の流れ
   google_auth.py       Google OAuth
   processed_store.py   処理済み message_id の記録
@@ -222,7 +230,7 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-Gmail / Drive / Sheets / OpenAI は偽物に差し替えてテストするため、APIキーなしで実行できます。
+Gmail / Drive / Sheets / Claude API は偽物に差し替えてテストするため、APIキーなしで実行できます。
 
 ## 今後（Phase 2 / 3）
 

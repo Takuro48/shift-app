@@ -39,7 +39,7 @@ def _print_records(results) -> None:
 
 def cmd_parse_pdf(config: Config, path: Path) -> int:
     from detector import score_filename, score_pdf_text
-    from invoice_parser import OpenAIInvoiceExtractor, extract_pdf_text, parse_invoice
+    from invoice_parser import ClaudeInvoiceExtractor, extract_pdf_text, parse_invoice
 
     data = path.read_bytes()
     pdf = extract_pdf_text(data)
@@ -47,11 +47,11 @@ def cmd_parse_pdf(config: Config, path: Path) -> int:
     print(f"スコア(ファイル名+PDF本文): {score_filename(path.name) + score_pdf_text(pdf.text)}")
     if pdf.encrypted:
         return 1
-    if not config.openai_api_key:
-        print("OPENAI_API_KEY が未設定のためAI解析はスキップしました")
+    if not config.anthropic_api_key:
+        print("ANTHROPIC_API_KEY が未設定のためAI解析はスキップしました")
         return 1
     ext = parse_invoice(
-        OpenAIInvoiceExtractor(config.openai_api_key, config.openai_model),
+        ClaudeInvoiceExtractor(config.anthropic_api_key, config.anthropic_model),
         email_subject="", email_sender="", email_body="",
         received_date=datetime.now(ZoneInfo(config.timezone)).date(),
         pdf_filename=path.name, pdf_text=pdf.text, pdf_bytes=data,
@@ -61,7 +61,7 @@ def cmd_parse_pdf(config: Config, path: Path) -> int:
 
 
 def cmd_test(config: Config) -> int:
-    """設定・Google認証・Drive・Sheet・OpenAIへの接続を順に確認する。"""
+    """設定・Google認証・Drive・Sheet・Claude APIへの接続を順に確認する。"""
     ok = True
 
     def check(label: str, fn):
@@ -105,12 +105,12 @@ def cmd_test(config: Config) -> int:
                 return f"「{config.sheet_name}」 登録済み {len(sheets.read_rows())} 行"
             check("Sheet（無ければシート・ヘッダーを作成）", sheet)
 
-    print("OpenAI")
-    if config.openai_api_key:
-        def openai_check():
-            from openai import OpenAI
-            return OpenAI(api_key=config.openai_api_key).models.retrieve(config.openai_model).id
-        check(f"APIキー・モデル {config.openai_model}", openai_check)
+    print("Claude API")
+    if config.anthropic_api_key:
+        def claude_check():
+            import anthropic
+            return anthropic.Anthropic(api_key=config.anthropic_api_key).models.retrieve(config.anthropic_model).display_name
+        check(f"APIキー・モデル {config.anthropic_model}", claude_check)
 
     print("\n結果: " + ("すべてOK" if ok else "NG があります。READMEのセットアップ手順を確認してください"))
     return 0 if ok else 1
@@ -131,14 +131,14 @@ def cmd_run(config: Config, args) -> int:
     from drive_service import DriveService
     from gmail_service import GmailService
     from google_auth import build_google_services
-    from invoice_parser import OpenAIInvoiceExtractor
+    from invoice_parser import ClaudeInvoiceExtractor
     from pipeline import InvoicePipeline
     from processed_store import ProcessedStore
     from sheets_service import SheetsService
 
     missing = config.missing_for_run()
     if args.dry_run:  # dry-run は書き込み先が無くても動かせる
-        missing = [m for m in missing if m == "OPENAI_API_KEY"]
+        missing = [m for m in missing if m == "ANTHROPIC_API_KEY"]
     if missing:
         print(f"未設定の項目があります: {', '.join(missing)}（.env を確認）")
         return 2
@@ -152,7 +152,7 @@ def cmd_run(config: Config, args) -> int:
         gmail=GmailService(gmail_api, config.timezone),
         drive=DriveService(drive_api, config.drive_root_folder_id),
         sheets=sheets,
-        extractor=OpenAIInvoiceExtractor(config.openai_api_key, config.openai_model),
+        extractor=ClaudeInvoiceExtractor(config.anthropic_api_key, config.anthropic_model),
         store=ProcessedStore(config.processed_path),
         dry_run=args.dry_run,
     )
